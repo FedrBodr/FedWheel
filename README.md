@@ -1,39 +1,72 @@
-# ⌚️ Companion.Garmin 
+# ⌚️ FedWheel
 
-# This app has reached a stale point. Now it will not be updated by the dev. If you want to continue development - contact me on [Telegram](https://t.me/ggoraa).
+WheelLog companion for Garmin watches, continued. Fork of
+[Wheellog/Companion.Garmin](https://github.com/Wheellog/Companion.Garmin) by ggoraa, which stopped being
+maintained in 2022 and does not support newer watches such as the fēnix 8.
 
-A WheelLog companion for Garmin smartwatches
+FedWheel shows live data from an electric unicycle on the watch. The phone does the talking to the wheel:
 
-This app is a rebuild from ground-up of an original Garmin app. I made this app to be with better UI, alarms working, and full support of new watches and their features.
+```
+wheel ──BLE──> WheelLog (Android) ──Connect IQ──> FedWheel (watch)
+```
 
-[Download from Garmin ConnectIQ Store](https://apps.garmin.com/en-US/apps/35719a02-8a5d-46bc-b474-f26c54c4e045)
-## 🔤 Important
+This matters for older wheels (e.g. InMotion V5/V8/V10): Garmin watches cannot talk to them directly
+(20-byte BLE packets), but WheelLog can, and FedWheel shows what WheelLog receives.
 
-License: **GPLv3**
+License: **GPLv3** (same as upstream).
 
-Changelog: [here](https://github.com/Wheellog/Companion.Garmin/blob/master/CHANGELOG.md)
+| fēnix 8 AMOLED 47/51 mm | fēnix 8 Solar 51 mm |
+|--|--|
+| ![](docs/screenshots/fenix8-amoled-47-51.png) | ![](docs/screenshots/fenix8-solar-51.png) |
 
-## ❤️ Support
+## Supported watches
 
-If you feel like you want to support me, and buy me a coffee, there is [a place for that](https://buymeacoffee.com/ggoraao)!
-Or using Patreon: https://www.patreon.com/ggoraa
+Everything upstream supported, plus fēnix 8: AMOLED 43 mm (`fenix843mm`), AMOLED 47/51 mm (`fenix847mm`),
+Pro 47 mm (`fenix8pro47mm`), Solar 47 mm (`fenix8solar47mm`), Solar 51 mm (`fenix8solar51mm`).
 
-## 🏞 Screenshots
-![screenshot 1](https://raw.githubusercontent.com/Wheellog/Companion.Garmin/master/.github/readme-images/1.png)
-![screenshot 2](https://raw.githubusercontent.com/Wheellog/Companion.Garmin/master/.github/readme-images/2.png)
-![screenshot 3](https://raw.githubusercontent.com/Wheellog/Companion.Garmin/master/.github/readme-images/3.png)
-![screenshot 4](https://raw.githubusercontent.com/Wheellog/Companion.Garmin/master/.github/readme-images/4.png)
+## Install (sideload)
 
-## 🛠 Development/Building
+1. Install [WheelLog](https://github.com/Wheellog/Wheellog.Android/releases) on the Android phone (free) and
+   connect it to the wheel.
+2. Build `FedWheel.prg` for your watch (below).
+3. Connect the watch by USB. On macOS use [OpenMTP](https://openmtp.ganeshrvel.com). Copy the `.prg` into
+   `GARMIN/APPS/` and disconnect.
+4. WheelLog → Settings → Watch → enable **Garmin Connect IQ** (beta toggle **off**).
+5. Start **FedWheel** on the watch.
 
-I use a build system called kumitateru, and here is a list of commands you can use:
+## Build
 
-`./kumitateru build` - assembles a release .iq file
+Requires the [Connect IQ SDK](https://developer.garmin.com/connect-iq/sdk/) (SDK Manager, with device files
+for your watch) and a developer key:
 
-`./kumitateru build --target <device>` - builds for a specific device
+```sh
+openssl genrsa -out key.pem 4096
+openssl pkcs8 -topk8 -inform PEM -outform DER -in key.pem -out developer_key.der -nocrypt
 
-`./kumitateru run --target <device>` - runs the app in a simulator
+monkeyc -l 0 -r -f monkey.jungle -d fenix847mm -y developer_key.der -o bin/FedWheel.prg
+```
 
-## 🌍 Translations
+Tests (start the simulator first with `connectiq`):
 
-You can contribute to translations here: https://poeditor.com/join/project?hash=WUAV6h3bxB
+```sh
+./scripts/test.sh            # default device fenix847mm
+./scripts/test.sh fenix8solar51mm
+```
+
+## Decisions
+
+- **App UUID kept** (`487e6172-972c-4f93-a4db-26fd689f935a`, WheelLog "stable" companion). The WheelLog phone
+  app only talks to the two upstream UUIDs, so a new UUID would need a custom phone build. Only the display
+  name changed to FedWheel.
+- **kumitateru dropped** for the standard `manifest.xml` + `monkey.jungle`. kumitateru is unmaintained;
+  the standard toolchain works with every current SDK. Resources moved to `resources-<device>` /
+  `resources-<lang>` folders.
+- **Type checking off (`-l 0`)**, as upstream (`type_check_level = 0`). SDK 9 defaults to strict checking,
+  which the old code does not pass. Turning it on is future cleanup.
+- **No direct-to-wheel mode.** Rejected because of Garmin's 20-byte BLE limit with pre-V11 InMotion wheels.
+  For newer wheels see [WheelDash](https://github.com/blkfribourg/WheelDash).
+
+## Credits
+
+Original app by [ggoraa](https://github.com/ggoraa) and the WheelLog team. Translations from the upstream
+[POEditor project](https://poeditor.com/join/project?hash=WUAV6h3bxB).
