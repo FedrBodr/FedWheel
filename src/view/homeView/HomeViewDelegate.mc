@@ -48,8 +48,9 @@ class HomeViewDelegate extends WatchUi.BehaviorDelegate {
             switch (AppStorage.getSetting("StartButtonAction")) {
                 case 0: startButtonActionSubLabel = WatchUi.loadResource(Rez.Strings.MainMenu_StartButtonAction_HornTrigger); break;
                 case 1: startButtonActionSubLabel = WatchUi.loadResource(Rez.Strings.MainMenu_StartButtonAction_FrontLightToggle); break;
+                case 2: startButtonActionSubLabel = WatchUi.loadResource(Voice.available() ? Rez.Strings.MainMenu_StartButtonAction_Voice : Rez.Strings.MainMenu_StartButtonAction_HornTrigger); break;
             }
-            if (AppStorage.runtimeDb["comm_protocolVersion"] > 2) {
+            if (Voice.available() || AppStorage.runtimeDb["comm_protocolVersion"] > 2) {
                 menu.addItem(new WatchUi.MenuItem(
                     Rez.Strings.MainMenu_StartButtonAction,
                     startButtonActionSubLabel,
@@ -63,7 +64,7 @@ class HomeViewDelegate extends WatchUi.BehaviorDelegate {
             menu.setTitle(Rez.Strings.MainMenu_Title);
             menu.addItem(Rez.Strings.MainMenu_AppTheme, :AppTheme);
             menu.addItem(Rez.Strings.MainMenu_DataUpdateSpeed, :DataUpdateSpeed);
-            if (AppStorage.runtimeDb["comm_protocolVersion"] > 2) {
+            if (Voice.available() || AppStorage.runtimeDb["comm_protocolVersion"] > 2) {
                 menu.addItem(Rez.Strings.MainMenu_StartButtonAction, :StartButtonAction);
             }
 
@@ -73,14 +74,26 @@ class HomeViewDelegate extends WatchUi.BehaviorDelegate {
     }
 
     function onSelect() {
-        switch (AppStorage.getSetting("StartButtonAction")) {
-            case 0: Actions.triggerHorn(); break;
-            case 1: if (AppStorage.runtimeDb["comm_protocolVersion"] > 2) { Actions.toggleFrontLight(); } else { Actions.triggerHorn(); } break;
+        if (Voice.isActive()) { // START drives the running voice flow (stop / confirm / retry)
+            Voice.onStartKey();
+            return true;
+        }
+        switch (StartAction.resolve(AppStorage.getSetting("StartButtonAction"), AppStorage.runtimeDb["comm_protocolVersion"], Voice.available())) {
+            case :voice: Voice.onStartKey(); break;
+            case :light: Actions.toggleFrontLight(); break;
+            default: Actions.triggerHorn(); break;
         }
         return true;
     }
 
+    function onBack() {
+        return Voice.onBackKey(); // false when no voice flow: default BACK behaviour
+    }
+
     function onNextPage() {
+        if (Voice.isActive()) {
+            return true; // keep the voice overlay; don't switch pages mid-flow
+        }
         updateIndexManifest(generateIndexManifest(:detailScreenData)); // Update manifest
         var view = new DetailView();
         WatchUi.switchToView(view, new DetailViewDelegate(view), WatchUi.SLIDE_UP); // Switch to DetailView

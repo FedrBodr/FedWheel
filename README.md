@@ -24,7 +24,17 @@ License: **GPLv3** (same as upstream).
 Everything upstream supported, plus fēnix 8: AMOLED 43 mm (`fenix843mm`), AMOLED 47/51 mm (`fenix847mm`),
 Pro 47 mm (`fenix8pro47mm`), Solar 47 mm (`fenix8solar47mm`), Solar 51 mm (`fenix8solar51mm`).
 
-## Install (sideload)
+## Voice (push-to-talk, fēnix 8)
+
+On the dashboard press **START**, speak, press **START** again (or wait 15 s). The watch shows
+"Отправляю…" / "Думаю…", then the reply for 6 s (the phone also speaks it in the headphones) and returns to the
+dashboard. If the phone asks for confirmation: START = yes, BACK = no. BACK cancels at any step.
+
+Needs the separate phone voice bridge (same contract as the standalone FedVoice app): it sends
+`["fv", port]` to the watch, the watch talks HTTP to `127.0.0.1:<port>/voice/*`. Without it the watch shows
+"Голос: телефон не готов". START action is a setting (menu → Click action): Voice (default), Horn, Front light.
+
+
 
 1. Install [WheelLog](https://github.com/Wheellog/Wheellog.Android/releases) on the Android phone (free) and
    connect it to the wheel.
@@ -63,6 +73,18 @@ Tests (start the simulator first with `connectiq`):
   `resources-<lang>` folders.
 - **Type checking off (`-l 0`)**, as upstream (`type_check_level = 0`). SDK 9 defaults to strict checking,
   which the old code does not pass. Turning it on is future cleanup.
+- **Voice code only on fēnix 8** (`src-voice/`, Audio.Capture needs API 6.0.3). Other watches compile
+  `src-novoice/` (a stub), selected per device in `monkey.jungle`. Rejected: one source tree with runtime
+  `has :Audio` checks — the compiler rejects `Toybox.Audio.Capture` symbols on old devices even with `-l 0`.
+  Old watches fall back to the horn when the setting is Voice.
+- **Voice = START default.** The rider uses it most; horn/light stay selectable. A watch that already stored
+  another value keeps it (Connect IQ keeps saved settings) — pick "Voice" in the menu once.
+- **Voice flow copied from FedVoice, not shared.** Connect IQ has no easy cross-app library without a barrel;
+  copying keeps FedVoice independent. Fix found here: after a finished capture the next `Capture.start()`
+  can fail with "not initialized", so the recorder initializes again once.
+- **Beeps once per change.** Connection tones play only on a real not-connected → connected change (the phone
+  re-announces its port); wheel lost / phone lost beep + vibrate once, no repeats. Wheel alarms from WheelLog
+  (speed/PWM/temperature) unchanged. The random "Like? Donate!" notice is removed.
 - **No direct-to-wheel mode.** Rejected because of Garmin's 20-byte BLE limit with pre-V11 InMotion wheels.
   For newer wheels see [WheelDash](https://github.com/blkfribourg/WheelDash).
 

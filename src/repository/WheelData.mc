@@ -24,6 +24,7 @@ module WheelData {
         wheelModel = "";
         
     var webServerPort;
+    var voicePort = null; // phone voice bridge, from ["fv", port]
     var isAppConnected = false;
 
     var dataUpdateTimer = new Timer.Timer();

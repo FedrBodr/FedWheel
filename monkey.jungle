@@ -1,3 +1,11 @@
 project.manifest = manifest.xml
-base.sourcePath = src;test
 base.barrelPath = dependencies/CIQVec-1.1.0.barrel
+
+# Push-to-talk voice (Audio.Capture, API 6.0.3+) only on devices with a microphone API.
+# Everything else gets src-novoice (a stub where Voice.available() is false).
+base.sourcePath = src;test;src-novoice
+fenix843mm.sourcePath = src;test;src-voice;test-voice
+fenix847mm.sourcePath = src;test;src-voice;test-voice
+fenix8pro47mm.sourcePath = src;test;src-voice;test-voice
+fenix8solar47mm.sourcePath = src;test;src-voice;test-voice
+fenix8solar51mm.sourcePath = src;test;src-voice;test-voice

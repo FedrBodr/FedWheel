@@ -15,6 +15,7 @@
     <string id="MainMenu_StartButtonAction">Click action</string>
     <string id="MainMenu_StartButtonAction_HornTrigger">Horn trigger</string>
     <string id="MainMenu_StartButtonAction_FrontLightToggle">Front light toggle</string>
+    <string id="MainMenu_StartButtonAction_Voice">Voice</string>
 
     <string id="LoadingScreen_WaitingConnectionWithApp">Waiting for WheelLog to connect...</string>
     <string id="LoadingScreen_ConnectionSuccessful">Successfully connected!</string>
@@ -55,4 +56,19 @@
     <string id="CIQ_StartButtonAction">Action on START button press / screen tap</string>
     <string id="CIQ_StartButtonAction_HornTrigger">Horn trigger</string>
     <string id="CIQ_StartButtonAction_FrontLightToggle">Front light toggle</string>
+    <string id="CIQ_StartButtonAction_Voice">Voice (push-to-talk)</string>
+
+    <!-- Push-to-talk voice (fēnix 8). Russian everywhere: the voice assistant speaks Russian. -->
+    <string id="Voice_Listening">Слушаю</string>
+    <string id="Voice_Sending">Отправляю…</string>
+    <string id="Voice_Thinking">Думаю…</string>
+    <string id="Voice_NoPhone">Голос: телефон не готов</string>
+    <string id="Voice_ConfirmHint">START — да, BACK — нет</string>
+    <string id="Voice_ErrPhone">Нет связи с телефоном</string>
+    <string id="Voice_ErrTimeout">Нет ответа (таймаут)</string>
+    <string id="Voice_ErrNet">Ошибка связи</string>
+    <string id="Voice_ErrMic">Микрофон недоступен</string>
+    <string id="Voice_ErrFormat">Формат записи не поддерживается</string>
+    <string id="Voice_ErrEmpty">Запись пустая</string>
+    <string id="Voice_ErrServer">Ошибка ответа</string>
 </strings>

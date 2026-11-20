@@ -48,4 +48,6 @@
     <string id="CIQ_BottomSubtitleData_Speed">Середня швидкість / Макс швидкість</string>
     <string id="CIQ_BottomSubtitleData_RideTime">Час у дорозі</string>
     <string id="CIQ_BottomSubtitleData_Distance">Відстань</string>
+    <string id="MainMenu_StartButtonAction_Voice">Голос</string>
+    <string id="CIQ_StartButtonAction_Voice">Голос</string>
 </strings>

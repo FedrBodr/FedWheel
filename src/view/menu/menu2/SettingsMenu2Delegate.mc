@@ -75,6 +75,14 @@ class SettingsMenu2Delegate extends WatchUi.Menu2InputDelegate {
             }
             case "StartButtonAction": {
                 var menu = new WatchUi.Menu2({:title => Rez.Strings.MainMenu_StartButtonAction});
+                if (Voice.available()) {
+                    menu.addItem(new WatchUi.MenuItem(
+                        Rez.Strings.MainMenu_StartButtonAction_Voice,
+                        null,
+                        "Voice",
+                        null
+                    ));
+                }
                 menu.addItem(new WatchUi.MenuItem(
                     Rez.Strings.MainMenu_StartButtonAction_HornTrigger,
                     null,

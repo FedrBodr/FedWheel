@@ -64,14 +64,10 @@ class HomeView extends WatchUi.View {
             cDrawables[:HeartRate].setText(HeartRate.label(HeartRate.current()));
         }
         if (WheelData.isWheelConnected == false) {
-            if (AppStorage.runtimeDb["ui_showDonationNotice"] == true) {
-                cDrawables[:BottomSubtitle].setText("Like? Donate!");
+            if (AppStorage.runtimeDb["comm_unsupportedProtocolVersionDetected"]) {
+                cDrawables[:BottomSubtitle].setText("err: -95"); // This will notify the user that the protocol version that WheelLog returned is lower or higher than the expected ones
             } else {
-                if (AppStorage.runtimeDb["comm_unsupportedProtocolVersionDetected"]) {
-                    cDrawables[:BottomSubtitle].setText("err: -95"); // This will notify the user that the protocol version that WheelLog returned is lower or higher than the expected ones
-                } else {
-                    cDrawables[:BottomSubtitle].setText(Rez.Strings.Message_WheelDisconnected);
-                }
+                cDrawables[:BottomSubtitle].setText(Rez.Strings.Message_WheelDisconnected);
             }
         } else {
             switch (AppStorage.getSetting("BottomSubtitleData")) {
@@ -111,6 +107,7 @@ class HomeView extends WatchUi.View {
 
         // Call the parent onUpdate function to redraw the layout
         View.onUpdate(dc);
+        Voice.draw(dc); // push-to-talk overlay (no-op when idle / no mic)
     }
 
     function onHide() {

@@ -17,6 +17,10 @@ class StartButtonActionMenu2Delegate extends WatchUi.Menu2InputDelegate {
                 AppStorage.setSetting("StartButtonAction", 1);
                 break;
             }
+            case "Voice": {
+                AppStorage.setSetting("StartButtonAction", StartAction.VOICE);
+                break;
+            }
         }
         WatchUi.popView(WatchUi.SLIDE_RIGHT);
     }

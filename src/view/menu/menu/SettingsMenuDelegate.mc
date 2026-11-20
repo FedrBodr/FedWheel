@@ -32,6 +32,9 @@ class SettingsMenuDelegate extends WatchUi.MenuInputDelegate {
             case :StartButtonAction: {
                 var menu = new WatchUi.Menu();
                 menu.setTitle(Rez.Strings.MainMenu_StartButtonAction);
+                if (Voice.available()) {
+                    menu.addItem(Rez.Strings.MainMenu_StartButtonAction_Voice, :Voice);
+                }
                 menu.addItem(Rez.Strings.MainMenu_StartButtonAction_HornTrigger, :Horn);
                 menu.addItem(Rez.Strings.MainMenu_StartButtonAction_FrontLightToggle, :Lights);
 

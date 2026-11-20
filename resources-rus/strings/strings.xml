@@ -48,4 +48,6 @@
     <string id="CIQ_BottomSubtitleData_Speed">Средняя Скорость / Максимальная Скорость</string>
     <string id="CIQ_BottomSubtitleData_RideTime">Время в пути</string>
     <string id="CIQ_BottomSubtitleData_Distance">Расстояние</string>
+    <string id="MainMenu_StartButtonAction_Voice">Голос</string>
+    <string id="CIQ_StartButtonAction_Voice">Голос</string>
 </strings>

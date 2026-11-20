@@ -11,9 +11,9 @@ function phoneAppMessageHandler(msg as Communications.Message) {
 
         if (data != null) {
             if (data instanceof Lang.Number) { // If the message is in v2 protocol
-                // Play connection tone
-                if (Attention has :playTone) {
-                    Attention.playTone(ToneProfiles.appConnectionTone);
+                // Connection tone only on a real not-connected -> connected change (the phone re-announces the port)
+                if (Notify.transition(WheelData.isAppConnected, true) == :connected) {
+                    Notify.tone(ToneProfiles.appConnectionTone);
                 }
                 AppStorage.runtimeDb["comm_protocolVersion"] = 2;
 
@@ -25,9 +25,9 @@ function phoneAppMessageHandler(msg as Communications.Message) {
             } else if (data instanceof Lang.Array) { // v3+ protocol
                 switch (data[0]) {
                     case "c": { // Connection
-                        // Play connection tone
-                        if (Attention has :playTone) {
-                            Attention.playTone(ToneProfiles.appConnectionTone);
+                        // Connection tone only on a real not-connected -> connected change
+                        if (Notify.transition(WheelData.isAppConnected, true) == :connected) {
+                            Notify.tone(ToneProfiles.appConnectionTone);
                         }
                         AppStorage.runtimeDb["comm_protocolVersion"] = data[1];
                         WheelData.webServerPort = data[2]; // Assign the server port
@@ -42,6 +42,13 @@ function phoneAppMessageHandler(msg as Communications.Message) {
                         break;
                     }
                     case "s": { // Settings sync (e.g. info blocks)
+                        break;
+                    }
+                    case "fv": { // Voice bridge port (separate phone server); no tone, no connection change
+                        var voicePort = VoicePort.parse(data);
+                        if (voicePort != null) {
+                            WheelData.voicePort = voicePort;
+                        }
                         break;
                     }
                 }

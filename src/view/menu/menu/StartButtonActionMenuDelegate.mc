@@ -17,6 +17,10 @@ class StartButtonActionMenuDelegate extends WatchUi.MenuInputDelegate {
                 AppStorage.setSetting("StartButtonAction", 1);
                 break;
             }
+            case :Voice: {
+                AppStorage.setSetting("StartButtonAction", StartAction.VOICE);
+                break;
+            }
         }
     }
 }

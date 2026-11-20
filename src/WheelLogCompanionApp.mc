@@ -16,14 +16,12 @@ class WheelLogCompanionApp extends Application.AppBase {
         AppStorage.runtimeDb["comm_disconnectionCountdown"] = 4;
         AppStorage.runtimeDb["comm_lastResponseCode"] = 200;
         AppStorage.runtimeDb["wheel_lastConnectionState"] = false;
-        AppStorage.runtimeDb["comm_wheelDisconnectionNoticeCountdown"] = 15;
-        AppStorage.runtimeDb["comm_appDisconnectionNoticeCountdown"] = 15;
-        AppStorage.runtimeDb["ui_donationNoticeCountdown"] = 10;
         WheelData.appUpdateTimer.start(method(:appUpdateTimerMethod), 500, true);
     }
 
     // onStop() is called when your application is exiting
     function onStop(state) {
+        Voice.shutdown();
     }
 
     // Return the initial view of your application here
