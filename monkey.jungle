@@ -1,2 +1,3 @@
 project.manifest = manifest.xml
+base.sourcePath = src;test
 base.barrelPath = dependencies/CIQVec-1.1.0.barrel
