@@ -71,4 +71,6 @@
     <string id="Voice_ErrFormat">Формат записи не поддерживается</string>
     <string id="Voice_ErrEmpty">Запись пустая</string>
     <string id="Voice_ErrServer">Ошибка ответа</string>
+    <string id="Voice_Repeat">START — скажите ещё раз</string>
+    <string id="Voice_Sent">отправлено</string>
 </strings>

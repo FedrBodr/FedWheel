@@ -72,7 +72,7 @@ module VoiceOverlay {
             dc.drawLine(w / 6, top, w * 5 / 6, top);
             dc.setPenWidth(1);
         } else if (st == VS_THINKING) {
-            s = ctl.rez(Rez.Strings.Voice_Thinking);
+            s = ctl.rez(Rez.Strings.Voice_Thinking) + " " + ctl.thinkSeconds() + " с";
             color = Graphics.COLOR_BLUE;
         } else if (st == VS_NOPORT) {
             s = ctl.rez(Rez.Strings.Voice_NoPhone);
@@ -84,6 +84,12 @@ module VoiceOverlay {
         }
         var lines = fit(dc, s, [font, Graphics.FONT_SMALL], w * 3 / 4, h - top - h / 12);
         drawLines(dc, lines[0], lines[1], color, top + (h - top) * 2 / 5);
+        // upload progress: while recording only when uploads lag behind the capture
+        if ((st == VS_REC && ctl.lagging()) || ((st == VS_SENDING || st == VS_FINISHING) && ctl.total > 0)) {
+            dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(w / 2, top + (h - top) * 7 / 10, Graphics.FONT_TINY,
+                ctl.rez(Rez.Strings.Voice_Sent) + " " + ctl.sent + "/" + ctl.total, Graphics.TEXT_JUSTIFY_CENTER);
+        }
     }
 
     function drawFull(dc, ctl, st) {

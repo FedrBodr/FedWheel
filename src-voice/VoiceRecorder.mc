@@ -3,11 +3,11 @@ import Toybox.Audio.Capture;
 import Toybox.Lang;
 import Toybox.System;
 
-// Wraps Audio.Capture: records one Ogg/Opus stream into memory (from FedVoice src/Recorder.mc).
-// Reports back to the controller via onRecError / onRecComplete.
+// Wraps Audio.Capture: one Ogg/Opus stream, handed to the controller as it is captured
+// (onRecData) so it can be uploaded while the user speaks (from FedVoice src/Recorder.mc).
+// Reports back via onRecData / onRecError / onRecComplete.
 class VoiceRecorder {
     private var _ctl as VoiceController;
-    private var _bufs as Array<ByteArray> = [] as Array<ByteArray>;
     private var _bytes as Number = 0;
     private var _inited as Boolean = false;
     var formatDesc as String = "";
@@ -44,7 +44,6 @@ class VoiceRecorder {
 
     // Returns null on success or an error symbol (:format, :mic).
     function start() as Symbol? {
-        _bufs = [] as Array<ByteArray>;
         _bytes = 0;
         if (!(Toybox has :Audio) || !(Audio has :Capture)) {
             return :mic;
@@ -115,21 +114,10 @@ class VoiceRecorder {
         }
     }
 
-    // Concatenate the captured windows into one Ogg stream and free the buffers.
-    function takeAudio() as ByteArray {
-        var out = []b;
-        for (var i = 0; i < _bufs.size(); i++) {
-            out.addAll(_bufs[i]);
-        }
-        _bufs = [] as Array<ByteArray>;
-        _bytes = 0;
-        return out;
-    }
-
     // ---- Capture.Callbacks ----
     function onData(audioData as ByteArray) as Void {
-        _bufs.add(audioData);
         _bytes += audioData.size();
+        _ctl.onRecData(audioData);
     }
 
     function onError(error as Capture.Error) as Void {

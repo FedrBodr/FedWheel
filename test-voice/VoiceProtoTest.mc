@@ -131,4 +131,12 @@ module VoiceProtoTest {
         Test.assert(VoiceProto.timedOut(1000, 31000, 30000));
         return true;
     }
+
+    (:test)
+    function pollWaitsUpTo90sForSlowAnswers(logger as Logger) as Boolean {
+        Test.assertEqual(VoiceProto.POLL_TIMEOUT_MS, 90000);
+        Test.assert(!VoiceProto.timedOut(0, 60000, VoiceProto.POLL_TIMEOUT_MS)); // server can need ~30-60 s
+        Test.assert(VoiceProto.timedOut(0, 90000, VoiceProto.POLL_TIMEOUT_MS));
+        return true;
+    }
 }

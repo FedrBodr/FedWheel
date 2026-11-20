@@ -17,13 +17,14 @@ enum VoiceState {
     VS_ERROR       // shown for RESULT_MS; START retries
 }
 
-// Push-to-talk state machine: recording -> upload -> poll -> result/confirm -> dashboard.
-// Adapted from FedVoice src/Controller.mc. The port comes from WheelData.voicePort
-// (set by phoneAppMessageHandler on ["fv", port]).
+// Push-to-talk state machine: record while streaming the audio to the phone -> /voice/end ->
+// poll -> result/confirm -> dashboard. Adapted from FedVoice src/Controller.mc. The port comes from
+// WheelData.voicePort (set by phoneAppMessageHandler on ["fv", port]).
 class VoiceController {
-    const MAX_REC_S = 15;
-    const MAX_BYTES = 300000;
+    const MAX_REC_S = 60;
+    const MAX_UNSENT = 200000;      // bytes the phone has not acknowledged yet: stop recording beyond this
     const FINISH_FALLBACK_MS = 1500;
+    const PORT_WAIT_MS = 10000;
     const RESULT_MS = 6000;
     const NOPORT_MS = 3000;
     const CONFIRM_MS = 30000;
@@ -33,17 +34,20 @@ class VoiceController {
     var reply as String = "";
     var errMsg as String = "";
     var recSeconds as Number = 0;
-    var seq as Number = 0;
-    var nChunks as Number = 0;
+    var sent as Number = 0;         // slices acknowledged by the phone
+    var total as Number = 0;        // slices so far
+    var peakUsed as Number = 0;     // memory high-water mark of this recording (logged)
 
     private var _rec as VoiceRecorder;
     private var _timer as Timer.Timer = new Timer.Timer();
     private var _timerKind as Symbol = :none;
     private var _gen as Number = 0;
-    private var _audio as ByteArray? = null;
+    private var _up as VoiceUpload? = null;
     private var _sid as String? = null;
     private var _pollStart as Number = 0;
     private var _recStart as Number = 0;
+    private var _stopAt as Number = 0;
+    private var _noPortSince as Number = 0;
     private var _retry as Symbol = :record;
     private var _confirmYes as Boolean = false;
 
@@ -82,8 +86,8 @@ class VoiceController {
                 sendConfirm(false);
                 return true;
             case VS_REC:
+            case VS_FINISHING:
                 _rec.stop();
-                _rec.takeAudio();
                 goIdle();
                 return true;
             default:
@@ -98,11 +102,11 @@ class VoiceController {
         _rec.stop();
     }
 
-    // ---------- recording ----------
+    // ---------- recording + streaming upload ----------
     private function startRecording() as Void {
         _gen++;
         _timer.stop();
-        _audio = null;
+        _up = null;
         _sid = null;
         text = "";
         reply = "";
@@ -114,26 +118,44 @@ class VoiceController {
             WatchUi.requestUpdate();
             return;
         }
+        _up = new VoiceUpload(VoiceProto.CHUNK_MAX);
+        peakUsed = 0;
         var err = _rec.start();
         if (err != null) {
+            _up = null;
             fail(err == :format ? rez(Rez.Strings.Voice_ErrFormat) : rez(Rez.Strings.Voice_ErrMic), :record);
             return;
         }
         state = VS_REC;
         recSeconds = 0;
         _recStart = System.getTimer();
+        _noPortSince = 0;
+        _retry = :upload;
         vibrate(60);
         schedule(:tick, 1000, true);
+        pump(); // the session is created right away
         WatchUi.requestUpdate();
     }
 
     private function stopRecording() as Void {
-        _timer.stop();
         state = VS_FINISHING;
+        _stopAt = System.getTimer();
         _rec.stop();
-        // Capture delivers remaining data then onComplete; fall back if it never comes.
-        schedule(:finish, FINISH_FALLBACK_MS, false);
+        // Capture delivers remaining data then onComplete; the tick falls back if it never comes.
         WatchUi.requestUpdate();
+    }
+
+    function onRecData(bytes as ByteArray) as Void {
+        var up = _up;
+        if (up == null) {
+            return;
+        }
+        up.append(bytes);
+        if (state == VS_REC && up.unsent() > MAX_UNSENT) {
+            System.println("FedWheel voice: upload lags (" + up.unsent() + " B unsent), stopping");
+            stopRecording();
+        }
+        pump();
     }
 
     function onRecComplete() as Void {
@@ -144,46 +166,108 @@ class VoiceController {
 
     function onRecError(code as Number) as Void {
         if (state == VS_REC || state == VS_FINISHING) {
-            _rec.takeAudio();
+            _up = null;
             fail(rez(Rez.Strings.Voice_ErrMic) + " (" + code + ")", :record);
         }
     }
 
     private function finishRecording() as Void {
-        _timer.stop();
-        var audio = _rec.takeAudio();
-        System.println("FedWheel voice: recorded " + audio.size() + " bytes");
-        if (audio.size() == 0) {
+        var up = _up;
+        if (up == null) {
+            return;
+        }
+        System.println("FedWheel voice: recorded " + up.bytes() + " bytes, " + up.acked() + " slices already sent, peak mem " + peakUsed);
+        if (up.bytes() == 0) {
+            _up = null;
             fail(rez(Rez.Strings.Voice_ErrEmpty), :record);
             return;
         }
-        _audio = audio;
-        beginUpload();
+        up.finish();
+        state = VS_SENDING;
+        pump();
+        WatchUi.requestUpdate();
     }
 
-    // ---------- upload ----------
-    private function beginUpload() as Void {
-        _gen++;
-        state = VS_SENDING;
-        seq = 0;
-        nChunks = 0;
-        _retry = :upload;
-        WatchUi.requestUpdate();
-        if (WheelData.voicePort == null) {
-            fail(rez(Rez.Strings.Voice_NoPhone), :upload);
+    // Sends the next start/chunk/end request when nothing is in flight.
+    private function pump() as Void {
+        var up = _up;
+        if (up == null || WheelData.voicePort == null
+                || (state != VS_REC && state != VS_FINISHING && state != VS_SENDING)) {
             return;
         }
-        post(:start, "/voice/start", {});
+        var a = up.next();
+        progress();
+        if (a == null) {
+            return;
+        }
+        var k = a[:kind];
+        if (k == :start) {
+            post(:start, "/voice/start", {});
+        } else if (k == :chunk) {
+            post(:chunk, "/voice/chunk", VoiceProto.chunkBody(up.sid as String, a[:seq] as Number, a[:data] as ByteArray));
+        } else {
+            post(:end, "/voice/end", {"id" => up.sid});
+        }
     }
 
-    private function sendNextChunk() as Void {
-        var audio = _audio as ByteArray;
-        if (seq < nChunks) {
-            post(:chunk, "/voice/chunk", VoiceProto.chunkBody(_sid as String, seq, VoiceProto.chunkAt(audio, seq, VoiceProto.CHUNK_MAX)));
-        } else {
-            post(:end, "/voice/end", {"id" => _sid});
+    private function onUploadResponse(kind as Symbol, code as Number, data as Object?) as Void {
+        var up = _up;
+        if (up == null) {
+            return;
         }
-        WatchUi.requestUpdate();
+        var sid = (kind == :start) ? VoiceProto.parseSid(code, data) : null;
+        var ok = (kind == :start) ? sid != null : VoiceProto.isOk(code, data);
+        if (ok) {
+            up.onOk(sid);
+            if (kind == :start) {
+                _sid = sid;
+            } else if (kind == :end) {
+                progress();
+                startPolling();
+                return;
+            }
+            pump();
+            WatchUi.requestUpdate();
+        } else if (up.onFail()) {
+            System.println("FedWheel voice: " + kind + " failed (" + code + "), retrying");
+            // re-sent from the next tick (<= 1 s)
+        } else {
+            failUpload(code == 200 ? rez(Rez.Strings.Voice_ErrServer) : netError(code));
+        }
+    }
+
+    // Upload gave up. START on the error screen re-sends the whole recording in a fresh session
+    // while it is still kept (nothing acknowledged yet); otherwise it records again.
+    private function failUpload(msg as String) as Void {
+        if (state == VS_REC || state == VS_FINISHING) {
+            _rec.stop();
+        }
+        var up = _up;
+        if (up != null) {
+            up.finish();
+        }
+        if (up == null || !up.restartable()) {
+            msg += "\n" + rez(Rez.Strings.Voice_Repeat);
+        }
+        fail(msg, :upload);
+    }
+
+    private function progress() as Void {
+        var up = _up;
+        if (up != null) {
+            sent = up.acked();
+            total = up.slices();
+        }
+    }
+
+    // Seconds spent waiting for the answer (shown next to "Думаю…").
+    function thinkSeconds() as Number {
+        return (System.getTimer() - _pollStart) / 1000;
+    }
+
+    // True when uploads trail the capture by more than the slice being filled.
+    function lagging() as Boolean {
+        return total - sent >= 2;
     }
 
     // ---------- result / confirm ----------
@@ -216,6 +300,7 @@ class VoiceController {
                 fail(rez(Rez.Strings.Voice_ErrTimeout), :poll);
             } else {
                 schedule(:poll, VoiceProto.POLL_MS, false);
+                WatchUi.requestUpdate(); // elapsed seconds
             }
             return;
         }
@@ -226,7 +311,7 @@ class VoiceController {
                 var msg = r[:reply] as String;
                 text = r[:text] as String;
                 // server-side failure: retrying re-sends the same recording
-                fail(msg.length() > 0 ? msg : rez(Rez.Strings.Voice_ErrServer), _audio != null ? :upload : :record);
+                fail(msg.length() > 0 ? msg : rez(Rez.Strings.Voice_ErrServer), :upload);
             }
             return;
         }
@@ -237,7 +322,7 @@ class VoiceController {
             schedule(:dismiss, CONFIRM_MS, false);
         } else {
             state = VS_RESULT;
-            _audio = null; // done; free memory
+            _up = null; // done; free memory
             schedule(:dismiss, RESULT_MS, false);
         }
         vibrate(40);
@@ -271,29 +356,8 @@ class VoiceController {
         if (code != 200) {
             System.println("FedWheel voice: " + kind + " -> " + code);
         }
-        if (kind == :start) {
-            var sid = VoiceProto.parseSid(code, data);
-            if (sid == null) {
-                fail(code == 200 ? rez(Rez.Strings.Voice_ErrServer) : netError(code), :upload);
-                return;
-            }
-            _sid = sid;
-            seq = 0;
-            nChunks = VoiceProto.chunkCount((_audio as ByteArray).size(), VoiceProto.CHUNK_MAX);
-            sendNextChunk();
-        } else if (kind == :chunk) {
-            if (!VoiceProto.isOk(code, data)) {
-                fail(code == 200 ? rez(Rez.Strings.Voice_ErrServer) : netError(code), :upload);
-                return;
-            }
-            seq++;
-            sendNextChunk();
-        } else if (kind == :end) {
-            if (!VoiceProto.isOk(code, data)) {
-                fail(code == 200 ? rez(Rez.Strings.Voice_ErrServer) : netError(code), :upload);
-                return;
-            }
-            startPolling();
+        if (kind == :start || kind == :chunk || kind == :end) {
+            onUploadResponse(kind, code, data);
         } else if (kind == :poll || kind == :confirm) {
             handleResult(code, data);
         }
@@ -315,15 +379,29 @@ class VoiceController {
 
     function onTimer() as Void {
         var k = _timerKind;
-        if (k == :tick && state == VS_REC) {
-            recSeconds = (System.getTimer() - _recStart) / 1000;
-            if (recSeconds >= MAX_REC_S || _rec.bytes() > MAX_BYTES) {
-                stopRecording();
-                return;
+        if (k == :tick && (state == VS_REC || state == VS_FINISHING || state == VS_SENDING)) {
+            var now = System.getTimer();
+            sampleMemory();
+            if (state == VS_REC) {
+                recSeconds = (now - _recStart) / 1000;
+                if (recSeconds >= MAX_REC_S) {
+                    stopRecording();
+                }
+            } else if (state == VS_FINISHING && now - _stopAt >= FINISH_FALLBACK_MS) {
+                finishRecording();
             }
+            if (WheelData.voicePort == null) {
+                if (_noPortSince == 0) {
+                    _noPortSince = now;
+                } else if (state == VS_SENDING && now - _noPortSince > PORT_WAIT_MS) {
+                    failUpload(rez(Rez.Strings.Voice_ErrPhone));
+                    return;
+                }
+            } else {
+                _noPortSince = 0;
+            }
+            pump();
             WatchUi.requestUpdate();
-        } else if (k == :finish && state == VS_FINISHING) {
-            finishRecording();
         } else if (k == :poll && state == VS_THINKING) {
             request(:poll, "/voice/result", {"id" => _sid}, {
                 :method => Communications.HTTP_REQUEST_METHOD_GET,
@@ -336,8 +414,14 @@ class VoiceController {
 
     // ---------- helpers ----------
     private function retry() as Void {
-        if (_retry == :upload && _audio != null) {
-            beginUpload();
+        var up = _up;
+        if (_retry == :upload && up != null && up.restart()) {
+            _gen++;
+            state = VS_SENDING;
+            _noPortSince = 0;
+            schedule(:tick, 1000, true);
+            pump();
+            WatchUi.requestUpdate();
         } else if (_retry == :poll && _sid != null) {
             _gen++;
             startPolling();
@@ -362,7 +446,7 @@ class VoiceController {
     private function goIdle() as Void {
         _gen++;
         _timer.stop();
-        _audio = null;
+        _up = null;
         state = VS_IDLE;
         WatchUi.requestUpdate();
     }
@@ -373,6 +457,17 @@ class VoiceController {
             Communications.transmit(["fv-hello"], null, new ActionConnectionListener());
         } catch (e instanceof Lang.Exception) {
         }
+    }
+
+    private function sampleMemory() as Void {
+        var st = System.getSystemStats();
+        var used = st.usedMemory;
+        if (used > peakUsed) {
+            peakUsed = used;
+        }
+        var up = _up;
+        System.println("FedWheel voice: t=" + recSeconds + "s mem used=" + used + " free=" + st.freeMemory
+            + " unsent=" + (up != null ? up.unsent() : 0) + " sent=" + sent + "/" + total);
     }
 
     private function vibrate(ms as Number) as Void {

@@ -7,7 +7,7 @@ import Toybox.StringUtil;
 module VoiceProto {
     const CHUNK_MAX = 3000;       // raw bytes per /voice/chunk (contract: <= 3 KB)
     const POLL_MS = 700;
-    const POLL_TIMEOUT_MS = 30000;
+    const POLL_TIMEOUT_MS = 90000;  // a 60 s recording: decode + STT + server answer
 
     function chunkCount(size as Number, max as Number) as Number {
         return (size + max - 1) / max;
