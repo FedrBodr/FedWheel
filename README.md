@@ -26,7 +26,7 @@ Pro 47 mm (`fenix8pro47mm`), Solar 47 mm (`fenix8solar47mm`), Solar 51 mm (`feni
 
 ## Voice (push-to-talk, fēnix 8)
 
-On the dashboard press **START**, speak, press **START** again (or wait 15 s). The watch shows
+On the dashboard press **START**, speak, press **START** again (or wait 60 s). **UP** toggles the front light. The watch shows
 "Отправляю…" / "Думаю…", then the reply for 6 s (the phone also speaks it in the headphones) and returns to the
 dashboard. If the phone asks for confirmation: START = yes, BACK = no. BACK cancels at any step.
 
@@ -85,6 +85,10 @@ Tests (start the simulator first with `connectiq`):
 - **Beeps once per change.** Connection tones play only on a real not-connected → connected change (the phone
   re-announces its port); wheel lost / phone lost beep + vibrate once, no repeats. Wheel alarms from WheelLog
   (speed/PWM/temperature) unchanged. The random "Like? Donate!" notice is removed.
+- **Front light on UP.** START is voice, so the light got its own key: UP on the dashboard toggles the wheel's
+  front light (short vibration). It was dead before: the watch posts `/actions/toggleFrontLight` on protocol v2,
+  which WheelLog never served, and the light option was hidden below protocol v3. The FedWheel-Android fork now
+  serves that endpoint (`adapter.switchFlashlight()`), and the light option shows on every protocol.
 - **No direct-to-wheel mode.** Rejected because of Garmin's 20-byte BLE limit with pre-V11 InMotion wheels.
   For newer wheels see [WheelDash](https://github.com/blkfribourg/WheelDash).
 

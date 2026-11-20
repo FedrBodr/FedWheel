@@ -27,9 +27,9 @@ module StartActionTest {
     function oldOptionsStillWork(logger as Logger) as Boolean {
         Test.assert(StartAction.resolve(StartAction.HORN, 3, true) == :horn);
         Test.assert(StartAction.resolve(StartAction.LIGHT, 3, true) == :light);
-        // front light needs protocol v3+, horn otherwise (legacy behaviour)
-        Test.assert(StartAction.resolve(StartAction.LIGHT, 2, true) == :horn);
-        Test.assert(StartAction.resolve(StartAction.LIGHT, null, true) == :horn);
+        // front light works on every protocol: v2 phones get it through /actions/toggleFrontLight
+        Test.assert(StartAction.resolve(StartAction.LIGHT, 2, true) == :light);
+        Test.assert(StartAction.resolve(StartAction.LIGHT, null, true) == :light);
         return true;
     }
 }

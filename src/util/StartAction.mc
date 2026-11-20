@@ -9,7 +9,7 @@ module StartAction {
 
     // Returns :voice, :horn or :light.
     // Voice falls back to the horn on watches without a microphone API;
-    // the front light needs WheelLog protocol v3+ (legacy behaviour: horn otherwise).
+    // The front light works on every protocol (v2 phones: POST /actions/toggleFrontLight).
     function resolve(setting, protocolVersion, voiceAvailable) {
         if (setting == null) {
             setting = DEFAULT;
@@ -17,7 +17,7 @@ module StartAction {
         if (setting == VOICE) {
             return voiceAvailable ? :voice : :horn;
         }
-        if (setting == LIGHT && protocolVersion != null && protocolVersion > 2) {
+        if (setting == LIGHT) {
             return :light;
         }
         return :horn;

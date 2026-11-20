@@ -1,5 +1,6 @@
 import Toybox.WatchUi;
 import Toybox.System;
+import Toybox.Attention;
 
 class HomeViewDelegate extends WatchUi.BehaviorDelegate {
 
@@ -50,23 +51,19 @@ class HomeViewDelegate extends WatchUi.BehaviorDelegate {
                 case 1: startButtonActionSubLabel = WatchUi.loadResource(Rez.Strings.MainMenu_StartButtonAction_FrontLightToggle); break;
                 case 2: startButtonActionSubLabel = WatchUi.loadResource(Voice.available() ? Rez.Strings.MainMenu_StartButtonAction_Voice : Rez.Strings.MainMenu_StartButtonAction_HornTrigger); break;
             }
-            if (Voice.available() || AppStorage.runtimeDb["comm_protocolVersion"] > 2) {
-                menu.addItem(new WatchUi.MenuItem(
-                    Rez.Strings.MainMenu_StartButtonAction,
-                    startButtonActionSubLabel,
-                    "StartButtonAction",
-                    null
-                ));
-            }
+            menu.addItem(new WatchUi.MenuItem(
+                Rez.Strings.MainMenu_StartButtonAction,
+                startButtonActionSubLabel,
+                "StartButtonAction",
+                null
+            ));
             WatchUi.pushView(menu, new SettingsMenu2Delegate(), WatchUi.SLIDE_UP);
         } else {
             var menu = new WatchUi.Menu();
             menu.setTitle(Rez.Strings.MainMenu_Title);
             menu.addItem(Rez.Strings.MainMenu_AppTheme, :AppTheme);
             menu.addItem(Rez.Strings.MainMenu_DataUpdateSpeed, :DataUpdateSpeed);
-            if (Voice.available() || AppStorage.runtimeDb["comm_protocolVersion"] > 2) {
-                menu.addItem(Rez.Strings.MainMenu_StartButtonAction, :StartButtonAction);
-            }
+            menu.addItem(Rez.Strings.MainMenu_StartButtonAction, :StartButtonAction);
 
             WatchUi.pushView(menu, new SettingsMenuDelegate(), WatchUi.SLIDE_UP);
         }
@@ -88,6 +85,18 @@ class HomeViewDelegate extends WatchUi.BehaviorDelegate {
 
     function onBack() {
         return Voice.onBackKey(); // false when no voice flow: default BACK behaviour
+    }
+
+    // UP toggles the wheel's front light, whatever START does.
+    function onPreviousPage() {
+        if (Voice.isActive()) {
+            return true;
+        }
+        Actions.toggleFrontLight();
+        if (Attention has :vibrate) {
+            Attention.vibrate([ new Attention.VibeProfile(50, 120) ]);
+        }
+        return true;
     }
 
     function onNextPage() {
