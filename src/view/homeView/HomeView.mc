@@ -19,6 +19,7 @@ class HomeView extends WatchUi.View {
         cDrawables[:BatteryNumber] = View.findDrawableById("BatteryNumber");
         cDrawables[:TemperatureNumber] = View.findDrawableById("TemperatureNumber");
         cDrawables[:BottomSubtitle] = View.findDrawableById("BottomSubtitle");
+        cDrawables[:HeartRate] = View.findDrawableById("HeartRate"); // only in layouts that show it
         // And arc drawables
         cDrawables[:SpeedArc] = View.findDrawableById("SpeedDial");
         cDrawables[:BatteryArc] = View.findDrawableById("BatteryArc");
@@ -59,6 +60,9 @@ class HomeView extends WatchUi.View {
         );
         cDrawables[:BatteryNumber].setText(Lang.format("$1$%", [WheelData.batteryPercentage]));
         cDrawables[:TemperatureNumber].setText(WheelData.temperature.toString());
+        if (cDrawables[:HeartRate] != null) {
+            cDrawables[:HeartRate].setText(HeartRate.label(HeartRate.current()));
+        }
         if (WheelData.isWheelConnected == false) {
             if (AppStorage.runtimeDb["ui_showDonationNotice"] == true) {
                 cDrawables[:BottomSubtitle].setText("Like? Donate!");
